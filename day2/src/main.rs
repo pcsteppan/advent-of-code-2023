@@ -4,7 +4,7 @@ use std::{collections::HashMap, fs, str::FromStr};
 struct Pull {
     red: i32,
     blue: i32,
-    green: i32
+    green: i32,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -65,11 +65,13 @@ fn main() {
 
 fn part1() {
     let input = fs::read_to_string("./input.txt").expect("could not open input file");
-    let games = input
-        .lines()
-        .map(|l| Game::from_str(l).unwrap());
+    let games = input.lines().map(|l| Game::from_str(l).unwrap());
 
-    let color_limits = Pull { red: 12, green: 13, blue: 14 };
+    let color_limits = Pull {
+        red: 12,
+        green: 13,
+        blue: 14,
+    };
 
     let valid_games = games.filter(|g| {
         g.clone().pulls.into_iter().all(|p| {
@@ -89,13 +91,16 @@ fn part2() {
     let sum: i32 = input
         .lines()
         .filter_map(|l| Game::from_str(l).ok())
-        .map(|g| g.pulls.into_iter().reduce(|acc, curr| {
-            Pull {
-                red: acc.red.max(curr.red),
-                blue: acc.blue.max(curr.blue),
-                green: acc.green.max(curr.green)
-            }
-        }).unwrap())
+        .map(|g| {
+            g.pulls
+                .into_iter()
+                .reduce(|acc, curr| Pull {
+                    red: acc.red.max(curr.red),
+                    blue: acc.blue.max(curr.blue),
+                    green: acc.green.max(curr.green),
+                })
+                .unwrap()
+        })
         .map(|max_pull| max_pull.blue * max_pull.red * max_pull.green)
         .sum();
 
