@@ -45,21 +45,21 @@ impl RangeMap {
                 match (left_inside, right_inside) {
                     (false, false) => {
                         // split into three ranges
+                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start-1, offset: curr.offset });
                         results.push(RangeMap { range: curr_map.range.clone(), offset: combined_offset });
-                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start, offset: curr.offset });
-                        stack.push(RangeMap { range: curr_map.range.end..curr.range.end, offset: curr.offset });
+                        stack.push(RangeMap { range: curr_map.range.end+1..curr.range.end, offset: curr.offset });
                         break;
                     },
                     (false, true) => {
                         // split into two ranges
+                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start-1, offset: curr.offset });
                         results.push(RangeMap { range: curr_map.range.start..curr.range.end, offset: combined_offset });
-                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start, offset: curr.offset });
                         break;
                     },
                     (true, false) => {
                         // split into two ranges
                         results.push(RangeMap { range: curr.range.start..curr_map.range.end, offset: combined_offset });
-                        stack.push(RangeMap { range: curr_map.range.end..curr.range.end, offset: curr.offset });
+                        stack.push(RangeMap { range: curr_map.range.end+1..curr.range.end, offset: curr.offset });
                         break;
                     },
                     (true, true) => {
