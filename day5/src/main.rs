@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::{collections::HashMap, fs, ops::Range, str::FromStr};
 
 #[derive(Debug, Clone)]
@@ -14,14 +15,14 @@ struct Map {
 }
 
 impl Map {
-    fn get(self: &Self, n: i64) -> i64 {
-        for f in &self.functions {
-            if f.range.contains(&n) {
-                return n + f.offset;
-            }
+    fn get(self: &Self, n: &i64) -> i64 {
+        let containing_map = self.functions.iter().find(|f| f.range.contains(&n));
+
+        if let Some(map) = containing_map {
+            return n + map.offset;
         }
 
-        n
+        *n
     }
 }
 
@@ -43,8 +44,8 @@ impl System {
             println!("working on: {}", curr_src);
             let curr_map = self.maps.get(curr_src).unwrap();
             seed_transforms = seed_transforms
-                .into_iter()
-                .map(|seed| curr_map.get(seed))
+                .into_par_iter()
+                .map(|seed| curr_map.get(&seed))
                 .collect();
 
             curr_src = &curr_map.destination;
@@ -133,5 +134,5 @@ fn main() {
     let system2 = System::from_str(&input, true).unwrap();
 
     let locations2 = system2.get_seed_locations();
-    println!("part2: {}", locations2.iter().min().unwrap());
+    println!("part2: {}", locations2.par_iter().min().unwrap());
 }
