@@ -16,7 +16,10 @@ struct Map {
 
 impl Map {
     fn get(self: &Self, n: &i64) -> i64 {
-        let containing_map = self.functions.iter().find(|f| f.range.contains(&n));
+        let containing_map = self
+            .functions
+            .iter()
+            .find(|f| *n >= f.range.start && *n <= f.range.end);
 
         if let Some(map) = containing_map {
             return n + map.offset;
