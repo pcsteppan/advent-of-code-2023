@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 #[derive(Debug, Clone)]
 struct Layer {
@@ -14,15 +14,19 @@ impl Layer {
         Layer {
             source: self.source,
             destination: other.destination.clone(),
-            range_maps: self.range_maps.into_iter().flat_map(|range_map| range_map.transform(other, allow_fallthrough)).collect(), 
+            range_maps: self
+                .range_maps
+                .into_iter()
+                .flat_map(|range_map| range_map.transform(other, allow_fallthrough))
+                .collect(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 struct RangeMap {
-    range: Range<i64>,
-    offset: i64
+    range: RangeInclusive<i64>,
+    offset: i64,
 }
 
 impl RangeMap {
@@ -34,47 +38,76 @@ impl RangeMap {
             let curr = stack.pop().unwrap();
             println!("stack: {:?}\r\ncurr: {:?}", stack, curr);
 
+            let mut unsplit = true;
+
             for curr_map in layer.range_maps.as_slice() {
                 println!("comparing curr {:?}: to curr_map: {:?}", curr, curr_map);
                 let combined_offset = curr_map.offset + curr.offset;
 
-                let left_inside = curr_map.range.contains(&curr.range.start);
-                let right_inside = curr_map.range.contains(&curr.range.end);
-                let has_no_overlap = curr.range.end < curr_map.range.start || curr.range.start > curr_map.range.end;
+                let left_inside = curr_map.range.contains(&curr.range.start());
+                let right_inside = curr_map.range.contains(&curr.range.end());
+                let has_no_overlap = curr.range.end() < curr_map.range.start()
+                    || curr.range.start() > curr_map.range.end();
 
                 if has_no_overlap {
-                    continue;        
+                    continue;
                 }
+
+                unsplit = false;
 
                 match (left_inside, right_inside) {
                     (false, false) => {
                         // split into three ranges
-                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start-1, offset: curr.offset });
-                        results.push(RangeMap { range: curr_map.range.clone(), offset: combined_offset });
-                        stack.push(RangeMap { range: curr_map.range.end+1..curr.range.end, offset: curr.offset });
+                        stack.push(RangeMap {
+                            range: *curr.range.start()..=curr_map.range.start() - 1,
+                            offset: curr.offset,
+                        });
+                        results.push(RangeMap {
+                            range: curr_map.range.clone(),
+                            offset: combined_offset,
+                        });
+                        stack.push(RangeMap {
+                            range: curr_map.range.end() + 1..=*curr.range.end(),
+                            offset: curr.offset,
+                        });
                         break;
-                    },
+                    }
                     (false, true) => {
                         // split into two ranges
-                        stack.push(RangeMap { range: curr.range.start..curr_map.range.start-1, offset: curr.offset });
-                        results.push(RangeMap { range: curr_map.range.start..curr.range.end, offset: combined_offset });
+                        stack.push(RangeMap {
+                            range: *curr.range.start()..=curr_map.range.start() - 1,
+                            offset: curr.offset,
+                        });
+                        results.push(RangeMap {
+                            range: *curr_map.range.start()..=*curr.range.end(),
+                            offset: combined_offset,
+                        });
                         break;
-                    },
+                    }
                     (true, false) => {
                         // split into two ranges
-                        results.push(RangeMap { range: curr.range.start..curr_map.range.end, offset: combined_offset });
-                        stack.push(RangeMap { range: curr_map.range.end+1..curr.range.end, offset: curr.offset });
+                        results.push(RangeMap {
+                            range: *curr.range.start()..=*curr_map.range.end(),
+                            offset: combined_offset,
+                        });
+                        stack.push(RangeMap {
+                            range: curr_map.range.end() + 1..=*curr.range.end(),
+                            offset: curr.offset,
+                        });
                         break;
-                    },
+                    }
                     (true, true) => {
                         // range stays the same, just update the offset
-                        results.push(RangeMap { range: curr.range.clone(), offset: combined_offset});
+                        results.push(RangeMap {
+                            range: curr.range.clone(),
+                            offset: combined_offset,
+                        });
                         break;
                     }
                 }
             }
 
-            if allow_fallthrough {
+            if unsplit {
                 results.push(curr);
             }
         }
@@ -83,8 +116,7 @@ impl RangeMap {
     }
 }
 
-impl System {
-}
+impl System {}
 
 #[derive(Debug, PartialEq, Eq)]
 struct ParseSystemError;
@@ -101,13 +133,22 @@ impl System {
 
         while self.layers.contains_key(&composition.destination) {
             let next_layer = self.layers.get(&composition.destination).unwrap();
-            println!("composing layer {} with layer {}", composition.source, composition.destination);
+            println!(
+                "composing layer {} with layer {}",
+                composition.source, composition.destination
+            );
 
-            composition = composition.clone().compose(next_layer, composition.destination.eq("seed"));
-            composition.range_maps = composition.range_maps.into_iter().map(|rm| RangeMap {
-                range: rm.range.start+rm.offset..rm.range.end+rm.offset,
-                offset: 0
-            }).collect();
+            composition = composition
+                .clone()
+                .compose(next_layer, composition.destination.eq("seed"));
+            composition.range_maps = composition
+                .range_maps
+                .into_iter()
+                .map(|rm| RangeMap {
+                    range: rm.range.start() + rm.offset..=rm.range.end() + rm.offset,
+                    offset: 0,
+                })
+                .collect();
             dbg!(composition.clone());
         }
 
@@ -128,7 +169,7 @@ impl System {
         for line in s.lines() {
             if line.contains("seeds") {
                 // e.g., 'seeds: 12 13 14'
-                
+
                 let mut seed_input: Vec<i64> = line
                     .split_once(": ")
                     .unwrap()
@@ -140,11 +181,10 @@ impl System {
 
                 for chunk in seed_input.chunks_mut(2) {
                     alpha_layer.range_maps.push(RangeMap {
-                        range: chunk[0]..chunk[0]+chunk[1], 
-                        offset: 0
+                        range: chunk[0]..=chunk[0] + chunk[1],
+                        offset: 0,
                     })
                 }
-                
             } else if line.contains("map") {
                 // e.g., 'soil-to-fertilizer map:'
                 (curr_src, curr_dest) = line.split_once(" ").unwrap().0.split_once("-to-").unwrap();
@@ -163,7 +203,7 @@ impl System {
                 let src_start = line_data.next().unwrap();
                 let range = line_data.next().unwrap();
                 let new_map = RangeMap {
-                    range: src_start..src_start + range,
+                    range: src_start..=src_start + range,
                     offset: dest_start - src_start,
                 };
                 maps.get_mut(curr_src).unwrap().range_maps.push(new_map);
@@ -181,15 +221,23 @@ fn main() {
 
     let system = System::from_str(&input).unwrap();
 
-//    dbg!(system);
+    //    dbg!(system);
 
     let composite_system = system.compose_all_layers();
-    dbg!(composite_system);
+
+    let result = composite_system
+        .range_maps
+        .iter()
+        .map(|rm| rm.range.start())
+        .min()
+        .unwrap();
+
+    println!("{}", result);
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{RangeMap, Layer, System};
+    use crate::{Layer, RangeMap, System};
 
     #[test]
     fn test_transform() {
@@ -232,8 +280,12 @@ humidity-to-location map:
 
         let composition = system.compose_all_layers();
 
-        let min = composition.range_maps.iter().map(|i| i.range.start + i.offset).min().unwrap();
+        let min = composition
+            .range_maps
+            .iter()
+            .map(|i| i.range.start() + i.offset)
+            .min()
+            .unwrap();
         println!("min {}", min);
     }
 }
-
