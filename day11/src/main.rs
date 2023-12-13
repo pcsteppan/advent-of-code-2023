@@ -9,18 +9,16 @@ impl GalaxyMap {
         GalaxyMap {
             map: str
                 .lines()
-                .into_iter()
-                .map(|l| l.chars().into_iter().map(|c| c == '#').collect())
+                .map(|l| l.chars().map(|c| c == '#').collect())
                 .collect(),
         }
     }
 
     fn compress_map(&self, map: &Vec<Vec<bool>>) -> Vec<usize> {
         let mut compressed_map = vec![];
-        (0..map[0].len()).into_iter().for_each(|i| {
-            let col_count = (0..map.len())
-                .into_iter()
-                .fold(0, |acc, curr| acc + if map[curr][i] { 1 } else { 0 });
+        (0..map[0].len()).for_each(|i| {
+            let col_count =
+                (0..map.len()).fold(0, |acc, curr| acc + if map[curr][i] { 1 } else { 0 });
             if col_count > 0 {
                 compressed_map.push(col_count);
             } else {
@@ -43,11 +41,7 @@ impl GalaxyMap {
             if galaxies_at_i > 0 {
                 (i + 1..compressed_map.len()).for_each(|j| {
                     let galaxies_at_j = compressed_map[j];
-
                     let distances_for_galaxies_at_i_and_j = galaxies_at_i * galaxies_at_j * (j - i);
-
-                    println!("{} {} {}", i, j, distances_for_galaxies_at_i_and_j);
-
                     total += distances_for_galaxies_at_i_and_j;
                 })
             }
