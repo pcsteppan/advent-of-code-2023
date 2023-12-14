@@ -14,23 +14,22 @@ impl GalaxyMap {
         }
     }
 
-    fn compress_map(&self, map: &Vec<Vec<bool>>) -> Vec<usize> {
+    fn compress_map(&self, map: &Vec<Vec<bool>>) -> Vec<Option<usize>> {
         let mut compressed_map = vec![];
         (0..map[0].len()).for_each(|i| {
             let col_count =
                 (0..map.len()).fold(0, |acc, curr| acc + if map[curr][i] { 1 } else { 0 });
             if col_count > 0 {
-                compressed_map.push(col_count);
+                compressed_map.push(Some(col_count));
             } else {
-                compressed_map.push(0);
-                compressed_map.push(0);
+                compressed_map.push(None);
             }
         });
 
         compressed_map
     }
 
-    fn find_horizontal_distances(&self, map: &Vec<Vec<bool>>) -> usize {
+    fn find_horizontal_distances(&self, map: &Vec<Vec<bool>>, expansion_coeff: usize) -> usize {
         let compressed_map = self.compress_map(map);
 
         let mut total = 0;
@@ -38,11 +37,18 @@ impl GalaxyMap {
         (0..compressed_map.len()).for_each(|i| {
             let galaxies_at_i = compressed_map[i];
 
-            if galaxies_at_i > 0 {
+            if galaxies_at_i.is_some() {
+                let mut extra_space = 0;
+
                 (i + 1..compressed_map.len()).for_each(|j| {
                     let galaxies_at_j = compressed_map[j];
-                    let distances_for_galaxies_at_i_and_j = galaxies_at_i * galaxies_at_j * (j - i);
-                    total += distances_for_galaxies_at_i_and_j;
+                    if !galaxies_at_j.is_some() {
+                        extra_space += expansion_coeff - 1;
+                    } else {
+                        let distances_between_galaxies_at_i_and_j =
+                            galaxies_at_i.unwrap() * galaxies_at_j.unwrap() * (j - i + extra_space);
+                        total += distances_between_galaxies_at_i_and_j;
+                    }
                 })
             }
         });
@@ -50,9 +56,10 @@ impl GalaxyMap {
         total
     }
 
-    fn find_distances(&self) -> usize {
-        let horizontal_distances = self.find_horizontal_distances(&self.map);
-        let vertical_distances = self.find_horizontal_distances(&transpose(self.map.clone()));
+    fn find_distances(&self, expansion_coeff: usize) -> usize {
+        let horizontal_distances = self.find_horizontal_distances(&self.map, expansion_coeff);
+        let vertical_distances =
+            self.find_horizontal_distances(&transpose(self.map.clone()), expansion_coeff);
         horizontal_distances + vertical_distances
     }
 }
@@ -70,9 +77,12 @@ where
 fn main() {
     let input = fs::read_to_string("input.txt").expect("could not read input.txt");
     let galaxy_map = GalaxyMap::from_str(&input);
-    let distances = galaxy_map.find_distances();
 
+    let distances = galaxy_map.find_distances(2);
     println!("part 1: {}", distances);
+
+    let part2_distances = galaxy_map.find_distances(1_000_000);
+    println!("part 2: {}", part2_distances);
 }
 
 #[cfg(test)]
@@ -94,7 +104,7 @@ mod tests {
 
         let galaxy_map = GalaxyMap::from_str(input);
 
-        assert_eq!(374, galaxy_map.find_distances());
+        assert_eq!(374, galaxy_map.find_distances(2));
     }
 
     #[test]
@@ -104,6 +114,6 @@ mod tests {
 #.##";
         let galaxy_map = GalaxyMap::from_str(input);
 
-        assert_eq!(24, galaxy_map.find_distances());
+        assert_eq!(24, galaxy_map.find_distances(2));
     }
 }
