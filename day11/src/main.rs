@@ -42,7 +42,7 @@ impl GalaxyMap {
 
                 (i + 1..compressed_map.len()).for_each(|j| {
                     let galaxies_at_j = compressed_map[j];
-                    if !galaxies_at_j.is_some() {
+                    if galaxies_at_j.is_none() {
                         extra_space += expansion_coeff - 1;
                     } else {
                         let distances_between_galaxies_at_i_and_j =
