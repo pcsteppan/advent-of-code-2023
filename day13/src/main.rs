@@ -1,4 +1,4 @@
-use std::{collections::hash_map::DefaultHasher, fs, hash::BuildHasher};
+use std::{fs, hash::BuildHasher};
 
 #[derive(PartialEq, Debug)]
 enum Orientation {
