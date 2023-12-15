@@ -105,7 +105,7 @@ fn main() {
     let input = fs::read_to_string("input.txt").expect("could not read input.txt");
     let terrains: Vec<_> = input.split("\r\n\r\n").map(Terrain::from_str).collect();
 
-    let part1_answer: usize = terrains
+    let part2_answer: usize = terrains
         .iter()
         .map(|terrain| {
             let result = terrain.find_summary();
@@ -115,5 +115,5 @@ fn main() {
         })
         .sum();
 
-    println!("part 1: {}", part1_answer);
+    println!("part 2: {}", part2_answer);
 }
