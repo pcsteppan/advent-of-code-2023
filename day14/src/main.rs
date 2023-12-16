@@ -1,5 +1,4 @@
-use rayon::prelude::*;
-use std::{fs, mem::swap, ops::Range};
+use std::{collections::HashMap, fs, time::Instant, usize::MAX};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum Thing {
@@ -27,7 +26,7 @@ impl Thing {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Data {
     grid: Vec<Vec<Thing>>,
     width: usize,
@@ -41,8 +40,8 @@ impl Data {
             .map(|l| l.chars().map(Thing::from_char).collect())
             .collect();
 
-        let height = grid[0].len();
-        let width = grid.len();
+        let height = grid.len();
+        let width = grid[0].len();
 
         Data {
             grid,
@@ -88,15 +87,31 @@ impl Data {
     }
 
     fn sort_row(&mut self, row: usize, start: usize, end: usize) {
+        let mut end_of_segment_found = false;
+        let mut prev_rock_idx_in_segment_found = MAX;
+
         for i in range(start, end) {
-            if self.grid[row][i] != Thing::Empty {
+            if end_of_segment_found || self.grid[row][i] != Thing::Empty {
+                if self.grid[row][i] == Thing::Pillar {
+                    end_of_segment_found = false;
+                    prev_rock_idx_in_segment_found = MAX;
+                }
                 continue;
             }
-            for j in range(i, end) {
+
+            let sub_loop_start = if prev_rock_idx_in_segment_found != MAX {
+                prev_rock_idx_in_segment_found
+            } else {
+                i
+            };
+
+            for j in range(sub_loop_start, end) {
                 if self.grid[row][j] == Thing::Rock {
+                    prev_rock_idx_in_segment_found = j;
                     self.grid[row].swap(i, j);
                     break;
                 } else if self.grid[row][j] == Thing::Pillar {
+                    end_of_segment_found = true;
                     break;
                 }
             }
@@ -104,17 +119,32 @@ impl Data {
     }
 
     fn sort_col(&mut self, col: usize, start: usize, end: usize) {
+        let mut end_of_segment_found = false;
+        let mut prev_rock_idx_in_segment_found = MAX;
         for i in range(start, end) {
-            if self.grid[i][col] != Thing::Empty {
+            if end_of_segment_found || self.grid[i][col] != Thing::Empty {
+                if self.grid[i][col] == Thing::Pillar {
+                    end_of_segment_found = false;
+                    prev_rock_idx_in_segment_found = MAX;
+                }
                 continue;
             }
-            for j in range(i, end) {
+
+            let sub_loop_start = if prev_rock_idx_in_segment_found != MAX {
+                prev_rock_idx_in_segment_found
+            } else {
+                i
+            };
+
+            for j in range(sub_loop_start, end) {
                 if self.grid[j][col] == Thing::Rock {
+                    prev_rock_idx_in_segment_found = j;
                     let temp = self.grid[i][col];
                     self.grid[i][col] = self.grid[j][col];
                     self.grid[j][col] = temp;
                     break;
                 } else if self.grid[j][col] == Thing::Pillar {
+                    end_of_segment_found = true;
                     break;
                 }
             }
@@ -131,40 +161,65 @@ fn range(start: usize, end: usize) -> Box<dyn Iterator<Item = usize>> {
 }
 
 fn get_col_load(col: &Vec<Thing>) -> usize {
-    col.iter()
-        .enumerate()
-        .fold((None, 0, 0), |acc, (i, curr)| match curr {
-            Thing::Pillar => (Some(i), 0, acc.2),
-            Thing::Rock => {
-                let virtual_position = if acc.0.is_none() {
-                    acc.1
-                } else {
-                    acc.0.unwrap() + acc.1 + 1
-                };
-                let rock_load = col.len() - virtual_position;
-                (acc.0, acc.1 + 1, acc.2 + rock_load)
-            }
-            _ => acc,
-        })
-        .2
+    col.iter().enumerate().fold(0, |acc, (i, curr)| {
+        if *curr == Thing::Rock {
+            acc + (col.len() - i)
+        } else {
+            acc
+        }
+    })
 }
 
 fn main() {
     let input = fs::read_to_string("input.txt").expect("could not read input.txt");
 
     let mut data = Data::from_str(&input);
+    data.tilt(Direction::North);
 
     println!("part 1: {}", data.get_load());
 
+    let start = Instant::now();
+    let mut difference_hashmap: HashMap<Vec<[usize; 2]>, usize> = HashMap::new();
+    let mut last_data = data.clone();
+    let mut cycle_len: Option<usize> = None;
     for i in 0..1_000_000_000 {
+        if let Some(cl) = cycle_len {
+            if i % cl == 1_000_000_000 % cl {
+                break;
+            }
+        }
+
         data.cycle();
 
-        if i % 10_000_000 == 0 {
-            println!("{}", i);
+        let diff: Vec<[usize; 2]> = last_data
+            .grid
+            .iter()
+            .enumerate()
+            .zip(&data.grid)
+            .flat_map(|((row_i, row1), row2)| {
+                row1.iter()
+                    .enumerate()
+                    .zip(row2)
+                    .filter(|((_, t1), t2)| *t1 != *t2)
+                    .map(|((j, _), _)| [row_i, j])
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<[usize; 2]>>();
+
+        if let Some(prev_index_of_identical_diff) = difference_hashmap.get(&diff) {
+            cycle_len = Some(i - prev_index_of_identical_diff);
+        } else {
+            difference_hashmap.insert(diff, i);
         }
+
+        last_data = data.clone();
     }
 
-    println!("part 2: {}", data.get_load());
+    println!(
+        "part 2: {}, completed in: {:?}",
+        data.get_load(),
+        start.elapsed()
+    );
 }
 
 #[cfg(test)]
@@ -185,6 +240,7 @@ O.#..O.#.#
 #OO..#....";
 
         let mut data = Data::from_str(test_input);
+        data.tilt(Direction::North);
 
         assert_eq!(136, data.get_load());
 
