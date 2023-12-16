@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, time::Instant};
 
 struct GalaxyMap {
     map: Vec<Vec<bool>>,
@@ -78,11 +78,13 @@ fn main() {
     let input = fs::read_to_string("input.txt").expect("could not read input.txt");
     let galaxy_map = GalaxyMap::from_str(&input);
 
+    let p1 = Instant::now();
     let distances = galaxy_map.find_distances(2);
-    println!("part 1: {}", distances);
+    println!("part 1: {}, {:?}", distances, p1.elapsed());
 
+    let p2 = Instant::now();
     let part2_distances = galaxy_map.find_distances(1_000_000);
-    println!("part 2: {}", part2_distances);
+    println!("part 2: {}, {:?}", part2_distances, p2.elapsed());
 }
 
 #[cfg(test)]
