@@ -1,4 +1,5 @@
-use std::{collections::HashSet, fs, i32};
+use rayon::prelude::*;
+use std::{collections::HashSet, fs, i32, time::Instant};
 
 #[derive(Hash, Clone, PartialEq, Eq, Debug)]
 struct Pos(i32, i32);
@@ -31,10 +32,10 @@ impl Pos {
     }
 }
 
-fn find_energized_cells(grid: &Vec<Vec<Thing>>) -> HashSet<Pos> {
+fn find_energized_cells(grid: &Vec<Vec<Thing>>, origin: (Pos, Direction)) -> HashSet<Pos> {
     let mut visited = HashSet::new();
 
-    let start = (Pos(-1, 0), Pos(0, 0));
+    let start = (origin.0.next(origin.1), origin.0);
     let mut frontier = vec![start];
 
     while let Some(light_ray) = frontier.pop() {
@@ -127,13 +128,43 @@ fn grid_from_str(str: &str) -> Vec<Vec<Thing>> {
 fn main() {
     let input = fs::read_to_string("input.txt").expect("could not read input.txt");
     let grid = grid_from_str(&input);
-    let cells = find_energized_cells(&grid);
+    let cells = find_energized_cells(&grid, (Pos(0, 0), Direction::West));
     println!("part 1: {}", cells.len());
+
+    let mut origins: Vec<_> = (0..grid[0].len())
+        .map(|i| (Pos(i as i32, 0), Direction::North))
+        .collect();
+    let s_origins: Vec<_> = (0..grid[0].len())
+        .map(|i| (Pos(i as i32, grid.len() as i32 - 1), Direction::South))
+        .collect();
+    let e_origins: Vec<_> = (0..grid.len())
+        .map(|i| (Pos(0, i as i32), Direction::East))
+        .collect();
+    let w_origins: Vec<_> = (0..grid.len())
+        .map(|i| (Pos(grid[0].len() as i32 - 1, i as i32), Direction::West))
+        .collect();
+
+    origins.extend(e_origins);
+    origins.extend(s_origins);
+    origins.extend(w_origins);
+
+    let start = Instant::now();
+    let best_path_energy = origins
+        .par_iter()
+        .map(|o| find_energized_cells(&grid, o.clone()).len())
+        .max()
+        .unwrap();
+
+    println!(
+        "part 2: {}, time elapsed: {:?}",
+        best_path_energy,
+        start.elapsed()
+    );
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{find_energized_cells, grid_from_str};
+    use crate::{find_energized_cells, grid_from_str, Direction, Pos};
 
     #[test]
     fn test1() {
@@ -142,7 +173,7 @@ mod test {
 .-/";
         let grid = grid_from_str(&input);
         dbg!(grid.clone());
-        let cells = find_energized_cells(&grid);
+        let cells = find_energized_cells(&grid, (Pos(0, 0), Direction::West));
         assert_eq!(8, cells.len());
     }
 
@@ -160,7 +191,7 @@ mod test {
 ..//.|....";
 
         let grid = grid_from_str(&input);
-        let cells = find_energized_cells(&grid);
+        let cells = find_energized_cells(&grid, (Pos(0, 0), Direction::West));
         assert_eq!(46, cells.len());
     }
 }
