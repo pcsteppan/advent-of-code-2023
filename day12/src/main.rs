@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::{collections::HashMap, fs, time::Instant};
 
 fn main() {
@@ -13,8 +14,9 @@ fn main() {
     let p2_start = Instant::now();
     let p2_result: usize = input
         .lines()
-        .map(|l| Diagram::from_str(l, 5))
-        .map(|d| d.find_all_valid_states())
+        .par_bridge()
+        .into_par_iter()
+        .map(|l| Diagram::from_str(l, 5).find_all_valid_states())
         .sum();
     println!(
         "part 1: {}, time elapsed: {:?}",
@@ -53,7 +55,7 @@ struct Diagram {
 
 impl Diagram {
     fn from_str(str: &str, repeat: usize) -> Diagram {
-        let (state_str, template_str) = str.split_once(" ").unwrap();
+        let (state_str, template_str) = str.split_once(' ').unwrap();
         let mut state_string = state_str.to_string();
         let mut template_string = template_str.to_string();
 
@@ -71,7 +73,7 @@ impl Diagram {
         }
 
         let template: Vec<usize> = template_string
-            .split(",")
+            .split(',')
             .map(|c| c.parse().unwrap())
             .collect();
 
@@ -92,8 +94,7 @@ impl Diagram {
             return false;
         }
 
-        return self.template.len() == 0
-            || self.get_first_potential_region_size() >= self.template[0];
+        self.template.is_empty() || self.get_first_potential_region_size() >= self.template[0]
     }
 
     fn get_first_potential_region_size(&self) -> usize {
@@ -127,7 +128,7 @@ impl Diagram {
     }
 
     fn get_number_of_valid_states(&self, memo: &mut HashMap<Diagram, usize>) -> usize {
-        if let Some(memoized_count) = memo.get(&self) {
+        if let Some(memoized_count) = memo.get(self) {
             return *memoized_count;
         }
 
@@ -135,11 +136,11 @@ impl Diagram {
             return 0;
         }
 
-        if self.state.len() == 0 {
-            return if self.template.len() == 0 { 1 } else { 0 };
+        if self.state.is_empty() {
+            return if self.template.is_empty() { 1 } else { 0 };
         }
 
-        if self.template.len() == 0 {
+        if self.template.is_empty() {
             return if self.state.iter().all(|t| *t != Thing::Gear) {
                 1
             } else {
