@@ -22,18 +22,32 @@ impl Thing {
 }
 
 #[derive(Debug)]
-struct State {
-    things: Vec<Thing>,
+struct Diagram {
+    state: Vec<Thing>,
     template: Vec<usize>,
 }
 
-impl State {
-    fn from_str(str: &str) -> State {
-        //
+impl Diagram {
+    fn from_str(str: &str) -> Diagram {
+        let (state_str, template_str) = str.split_once(" ").unwrap();
+
+        Diagram {
+            state: state_str.chars().map(Thing::from_char).collect(),
+            template: template_str
+                .chars()
+                .map(|c| c.to_digit(10).unwrap() as usize)
+                .collect(),
+        }
     }
+
+    fn is_possible(&self) -> bool {
+        todo!();
+    }
+
+    fn find_regions(&self) -> Vec<usize> {}
 }
 
-fn fits(state: State) {
+fn fits(state: Diagram) {
     dbg!(state);
 }
 
