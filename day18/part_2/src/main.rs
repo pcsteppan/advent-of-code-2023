@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::{collections::HashMap, fs};
 
 use crate::edge::*;
@@ -36,19 +37,12 @@ impl Plan {
                 let color = words.next().unwrap().replace(['(', '#', ')'], "");
 
                 let length = if use_hex {
-                    println!("{}", &color[0..5]);
                     usize::from_str_radix(&color[0..5], 16).unwrap()
                 } else {
                     p1_length
                 };
-                println!("length: {}", length);
 
                 let dir = if use_hex {
-                    println!(
-                        "{:?}",
-                        usize::from_str_radix(&color.chars().nth(5).unwrap().to_string(), 16)
-                    );
-
                     match usize::from_str_radix(&color.chars().nth(5).unwrap().to_string(), 16)
                         .unwrap()
                     {
@@ -138,7 +132,7 @@ impl Plan {
     }
 
     fn find_area(&self) -> usize {
-        self.0.iter().map(|row| self.find_row_area(row)).sum()
+        self.0.par_iter().map(|row| self.find_row_area(row)).sum()
     }
 
     fn find_row_area<'a>(&self, row: &HashMap<usize, u8>) -> usize {
@@ -165,7 +159,7 @@ impl Plan {
                     area += 1;
                 }
                 NORTH_WEST | NORTH_EAST | SOUTH_EAST | SOUTH_WEST => {
-                    area += 1; //edge_index - prev_col;
+                    area += 1;
                     if inside {
                         area += edge_index - prev_col - 1;
                     }
@@ -193,8 +187,7 @@ fn main() {
     let input = fs::read_to_string("input.txt").expect("Could not read input.txt");
 
     let plan = Plan::from_str(&input, true);
-    //println!("{}", plan);
-    println!("part 1: {}", plan.find_area());
+    println!("part 2: {}", plan.find_area());
 }
 
 #[cfg(test)]
