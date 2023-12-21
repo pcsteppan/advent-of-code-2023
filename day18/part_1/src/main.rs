@@ -1,5 +1,5 @@
 use std::{
-    fmt::{self, Formatter},
+    fmt::{self},
     fs,
 };
 
@@ -25,7 +25,7 @@ impl fmt::Display for Plan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut plan = String::new();
         for row in &self.0 {
-            let row_display: String = row.iter().map(|e| edge_char(&e)).collect();
+            let row_display: String = row.iter().map(|e| edge_char(e)).collect();
             plan += &row_display;
             plan += "\r\n";
         }
@@ -61,7 +61,7 @@ impl Plan {
                     _ => panic!("unexpected direction while parsing instructions"),
                 };
                 let p1_length: usize = words.next().unwrap().parse().unwrap();
-                let color = words.next().unwrap().replace(&['(', '#', ')'], "");
+                let color = words.next().unwrap().replace(['(', '#', ')'], "");
 
                 let length = if use_hex {
                     usize::from_str_radix(&color[0..5], 16).unwrap()
@@ -106,16 +106,16 @@ impl Plan {
             },
         );
 
-        let width = min.0.abs() as usize + max.0 as usize;
-        let height = min.1.abs() as usize + max.1 as usize;
+        let width = min.0.unsigned_abs() + max.0 as usize;
+        let height = min.1.unsigned_abs() + max.1 as usize;
 
-        let origin = (min.0.abs() as usize, min.1.abs() as usize);
+        let origin = (min.0.unsigned_abs(), min.1.unsigned_abs());
 
         let mut plan: Vec<_> = vec![vec![0; width + 1]; height + 1];
 
         instructions
             .iter()
-            .fold(origin.clone(), |curr, (direction, length)| {
+            .fold(origin, |curr, (direction, length)| {
                 let new_curr = match *direction {
                     NORTH => (curr.0, curr.1 - length),
                     EAST => (curr.0 + length, curr.1),
@@ -143,7 +143,7 @@ impl Plan {
 
                 while curr_edge.0 != new_curr.0 as isize || curr_edge.1 != new_curr.1 as isize {
                     plan[curr_edge.1 as usize][curr_edge.0 as usize] |= direction;
-                    curr_edge = (curr_edge.0 as isize + dx, curr_edge.1 as isize + dy);
+                    curr_edge = (curr_edge.0 + dx, curr_edge.1 + dy);
                     plan[curr_edge.1 as usize][curr_edge.0 as usize] |= opposite_direction;
                 }
 
