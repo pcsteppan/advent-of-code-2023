@@ -33,7 +33,7 @@ impl Plan {
                     _ => panic!("unexpected direction while parsing instructions"),
                 };
                 let p1_length: usize = words.next().unwrap().parse().unwrap();
-                let color = words.next().unwrap().replace(&['(', '#', ')'], "");
+                let color = words.next().unwrap().replace(['(', '#', ')'], "");
 
                 let length = if use_hex {
                     println!("{}", &color[0..5]);
@@ -85,15 +85,15 @@ impl Plan {
             },
         );
 
-        let height = min.1.abs() as usize + max.1 as usize;
+        let height = min.1.unsigned_abs() + max.1 as usize;
 
-        let origin = (min.0.abs() as usize, min.1.abs() as usize);
+        let origin = (min.0.unsigned_abs(), min.1.unsigned_abs());
 
         let mut plan: Vec<_> = vec![HashMap::new(); height + 1];
 
         instructions
             .iter()
-            .fold(origin.clone(), |curr, (direction, length)| {
+            .fold(origin, |curr, (direction, length)| {
                 let new_curr = match *direction {
                     NORTH => (curr.0, curr.1 - length),
                     EAST => (curr.0 + length, curr.1),
@@ -124,7 +124,7 @@ impl Plan {
                         .entry(curr_edge.0 as usize)
                         .and_modify(|e| *e = &*e | *direction)
                         .or_insert(*direction);
-                    curr_edge = (curr_edge.0 as isize + dx, curr_edge.1 as isize + dy);
+                    curr_edge = (curr_edge.0 + dx, curr_edge.1 + dy);
                     plan[curr_edge.1 as usize]
                         .entry(curr_edge.0 as usize)
                         .and_modify(|e| *e = &*e | opposite_direction)
