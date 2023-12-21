@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Formatter},
-    fs,
-};
+use std::{collections::HashMap, fs};
 
 use crate::edge::*;
 
@@ -19,32 +16,7 @@ pub mod edge {
 }
 
 #[derive(Debug)]
-struct Plan(Vec<Vec<u8>>);
-
-impl fmt::Display for Plan {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut plan = String::new();
-        for row in &self.0 {
-            let row_display: String = row.iter().map(|e| edge_char(&e)).collect();
-            plan += &row_display;
-            plan += "\r\n";
-        }
-        write!(f, "{}", plan)
-    }
-}
-
-fn edge_char(e: &u8) -> char {
-    char::from_u32(match *e {
-        NORTH_SOUTH => '│',
-        NORTH_EAST => '└',
-        NORTH_WEST => '┘',
-        EAST_WEST => '─',
-        SOUTH_EAST => '┌',
-        SOUTH_WEST => '┐',
-        _ => '.',
-    } as u32)
-    .unwrap()
-}
+struct Plan(Vec<HashMap<usize, u8>>);
 
 impl Plan {
     fn from_str(str: &str, use_hex: bool) -> Self {
@@ -64,12 +36,19 @@ impl Plan {
                 let color = words.next().unwrap().replace(&['(', '#', ')'], "");
 
                 let length = if use_hex {
+                    println!("{}", &color[0..5]);
                     usize::from_str_radix(&color[0..5], 16).unwrap()
                 } else {
                     p1_length
                 };
+                println!("length: {}", length);
 
                 let dir = if use_hex {
+                    println!(
+                        "{:?}",
+                        usize::from_str_radix(&color.chars().nth(5).unwrap().to_string(), 16)
+                    );
+
                     match usize::from_str_radix(&color.chars().nth(5).unwrap().to_string(), 16)
                         .unwrap()
                     {
@@ -106,15 +85,11 @@ impl Plan {
             },
         );
 
-        let width = min.0.abs() as usize + max.0 as usize;
         let height = min.1.abs() as usize + max.1 as usize;
 
         let origin = (min.0.abs() as usize, min.1.abs() as usize);
 
-        let mut plan: Vec<_> = (0..=height)
-            .into_iter()
-            .map(|_| vec![0; width + 1])
-            .collect();
+        let mut plan: Vec<_> = vec![HashMap::new(); height + 1];
 
         instructions
             .iter()
@@ -145,9 +120,15 @@ impl Plan {
                 };
 
                 while curr_edge.0 != new_curr.0 as isize || curr_edge.1 != new_curr.1 as isize {
-                    plan[curr_edge.1 as usize][curr_edge.0 as usize] |= direction;
+                    plan[curr_edge.1 as usize]
+                        .entry(curr_edge.0 as usize)
+                        .and_modify(|e| *e = &*e | *direction)
+                        .or_insert(*direction);
                     curr_edge = (curr_edge.0 as isize + dx, curr_edge.1 as isize + dy);
-                    plan[curr_edge.1 as usize][curr_edge.0 as usize] |= opposite_direction;
+                    plan[curr_edge.1 as usize]
+                        .entry(curr_edge.0 as usize)
+                        .and_modify(|e| *e = &*e | opposite_direction)
+                        .or_insert(opposite_direction);
                 }
 
                 new_curr
@@ -160,41 +141,50 @@ impl Plan {
         self.0.iter().map(|row| self.find_row_area(row)).sum()
     }
 
-    fn find_row_area<'a>(&self, row: &Vec<u8>) -> usize {
+    fn find_row_area<'a>(&self, row: &HashMap<usize, u8>) -> usize {
         let mut waiting_on: Option<u8> = None;
         let mut inside = false;
         let mut area = 0;
+        let mut prev_col = 0;
 
-        for edge in row {
+        let mut edge_indexes: Vec<&usize> = row.keys().collect();
+        edge_indexes.sort();
+
+        for edge_index in edge_indexes {
+            let edge = row.get(edge_index).unwrap();
+
             match *edge {
                 NORTH_SOUTH => {
-                    inside = !inside;
                     area += 1;
+                    if inside && *edge_index != 0 {
+                        area += edge_index - prev_col - 1;
+                    }
+                    inside = !inside;
                 }
                 EAST_WEST => {
                     area += 1;
                 }
-                0 => {
+                NORTH_WEST | NORTH_EAST | SOUTH_EAST | SOUTH_WEST => {
+                    area += 1; //edge_index - prev_col;
                     if inside {
-                        area += 1;
+                        area += edge_index - prev_col - 1;
                     }
-                    waiting_on = None;
-                }
-                _ => {
-                    area += 1;
                     if let Some(edge_waited_on) = waiting_on {
                         if edge_waited_on == *edge {
                             inside = !inside;
-                        } else {
-                            waiting_on = None;
                         }
+                        waiting_on = None;
                     } else {
                         waiting_on = Some(edge ^ 0b1111);
                     }
                 }
+                _ => {
+                    panic!("parsing unexpected u8 while finding area of row: {}", edge);
+                }
             }
-        }
 
+            prev_col = *edge_index;
+        }
         area
     }
 }
@@ -202,7 +192,7 @@ impl Plan {
 fn main() {
     let input = fs::read_to_string("input.txt").expect("Could not read input.txt");
 
-    let plan = Plan::from_str(&input, false);
+    let plan = Plan::from_str(&input, true);
     //println!("{}", plan);
     println!("part 1: {}", plan.find_area());
 }
@@ -228,32 +218,23 @@ U 3 (#a77fa3)
 L 2 (#015232)
 U 2 (#7a21e3)";
 
-        let plan = Plan::from_str(input, false);
-        println!("{}", plan);
+        let plan = Plan::from_str(input, true);
         let area = plan.find_area();
 
-        assert_eq!(62, area);
+        println!("difference: {}", area - 952408144115);
+        assert_eq!(952408144115, area);
     }
 
     #[test]
     fn test2() {
-        let input = "R 2 X
-D 4 X
-R 2 X
-U 4 X
-R 2 X
-D 6 X
-L 2 X
-D 2 X
-L 2 X
-U 2 X
-L 2 X
-U 6 X";
+        let input = "R 6 (#000020)
+D 5 (#000021)
+L 2 (#000022)
+D 2 (#000023)";
 
-        let plan = Plan::from_str(input, false);
+        let plan = Plan::from_str(input, true);
+        let area = plan.find_area();
 
-        println!("{}", plan);
-
-        assert_eq!(51, plan.find_area());
+        assert_eq!(9, area);
     }
 }
