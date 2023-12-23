@@ -12,7 +12,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone)]
-struct Item([u32; 4]);
+struct Item([u16; 4]);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RuleType {
@@ -24,7 +24,7 @@ enum RuleType {
 struct Rule {
     rule_type: RuleType,
     attribute_index: usize,
-    value: u32,
+    value: u16,
     destination: String,
 }
 
@@ -112,7 +112,7 @@ impl System {
             .lines()
             .map(|line| {
                 let item_str = line[1..line.len() - 1].to_string();
-                let item_attributes: Vec<u32> = item_str
+                let item_attributes: Vec<u16> = item_str
                     .split(',')
                     .map(|attribute| {
                         let mut attribute = attribute.split('=');
@@ -144,6 +144,7 @@ impl System {
                 println!("{}", x);
                 let mut sub_count = 0;
                 for m in 1..=4000 {
+                    println!("{}", m);
                     for a in 1..=4000 {
                         for s in 1..=4000 {
                             let item = Item([x, m, a, s]);
@@ -203,7 +204,7 @@ impl System {
     fn solve(&self) -> usize {
         self.find_accepted_items()
             .iter()
-            .map(|item| item.0.iter().sum::<u32>() as usize)
+            .map(|item| item.0.iter().sum::<u16>() as usize)
             .sum()
     }
 }
