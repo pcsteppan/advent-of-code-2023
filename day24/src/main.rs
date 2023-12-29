@@ -1,8 +1,6 @@
 // the input format is:
 // px py pz @ vx vy vz
 
-use std::collections::HashSet;
-
 #[derive(Debug, PartialEq, Clone)]
 struct Vec3 {
     x: f64,
@@ -11,14 +9,6 @@ struct Vec3 {
 }
 
 impl Vec3 {
-    fn add(&self, other: &Vec3) -> Vec3 {
-        Vec3 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-
     fn within_region(&self, p1: f64, p2: f64) -> bool {
         self.x >= p1 && self.x <= p2 && self.y >= p1 && self.y <= p2
     }
@@ -31,7 +21,7 @@ struct Particle {
 
 impl Particle {
     fn from_str(str: &str) -> Particle {
-        let filtered_str = str.replace("@", "").replace(",", "");
+        let filtered_str = str.replace(['@', ','], "");
         let mut iter = filtered_str.split_whitespace();
         let position = Vec3 {
             x: iter.next().unwrap().parse().unwrap(),
@@ -46,29 +36,27 @@ impl Particle {
         Particle { position, velocity }
     }
 
+    // referenced implementation from: https://aoc.csokavar.hu/?day=24
     fn find_point_of_intersection(&self, other: &Particle) -> Option<Vec3> {
-        let (p1, p2) = (&self.position, self.position.add(&self.velocity));
-        let (q1, q2) = (&other.position, other.position.add(&other.velocity));
-
-        let demoninator = (p1.x - p2.x) * (q1.y - q2.y) - (p1.y - p2.y) * (q1.x - q2.x);
+        let determinant = self.velocity.x * other.velocity.y - self.velocity.y * other.velocity.x;
 
         // lines are parallel
-        if demoninator < 0. {
+        if determinant == 0.0 {
             return None;
         }
 
-        let determinant_x = ((p1.x * p2.y - p1.y * p2.x) * (q1.x - q2.x)
-            - (p1.x - p2.x) * (q1.x * q2.y - q1.y * q2.x))
-            / demoninator;
-        let determinant_y = ((p1.x * p2.y - p1.y * p2.x) * (q1.y - q2.y)
-            - (p1.y - p2.y) * (q1.x * q2.y - q1.y * q2.x))
-            / demoninator;
+        let b0 = self.velocity.x * self.position.y - self.velocity.y * self.position.x;
+        let b1 = other.velocity.x * other.position.y - other.velocity.y * other.position.x;
 
         Some(Vec3 {
-            x: determinant_x,
-            y: determinant_y,
+            x: (other.velocity.x * b0 - self.velocity.x * b1) / determinant,
+            y: (other.velocity.y * b0 - self.velocity.y * b1) / determinant,
             z: 0.,
         })
+    }
+
+    fn in_future(&self, position: &Vec3) -> bool {
+        (position.x - self.position.x).signum() == self.velocity.x.signum()
     }
 }
 
@@ -77,31 +65,25 @@ fn find_all_intersections_count(
     lower_bound: f64,
     upper_bound: f64,
 ) -> usize {
-    let mut intersections = vec![];
+    let mut count = 0;
     for i in 0..particles.len() {
-        let mut skip = false;
         for j in i + 1..particles.len() {
-            if skip {
-                continue;
-            }
             let intersection_point = particles[i].find_point_of_intersection(&particles[j]);
             if let Some(pt) = intersection_point.clone() {
                 if !pt.within_region(lower_bound, upper_bound)
                     || particles[i].position == particles[j].position
+                    || !particles[i].in_future(&pt)
+                    || !particles[j].in_future(&pt)
                 {
                     continue;
                 }
 
-                println!("{:?}, {} {}", pt, i, j);
-                intersections.push(j);
-                skip = true;
-                break;
+                count += 1;
             }
         }
     }
 
-    println!("{:?}", intersections.clone());
-    intersections.len()
+    count
 }
 
 fn main() {
@@ -156,6 +138,15 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn test3() {
+        let input = include_str!("../input.txt");
+        let particles: Vec<Particle> = input.lines().map(Particle::from_str).collect();
+        let valid_intersection_point_count =
+            find_all_intersections_count(&particles, 200_000_000_000_000., 400_000_000_000_000.);
+
+        assert_eq!(valid_intersection_point_count, 27328);
+    }
     fn test2() {
         let input = "19, 13, 30 @ -2,  1, -2
 18, 19, 22 @ -1, -1, -2
